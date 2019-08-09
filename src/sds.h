@@ -40,10 +40,13 @@ const char *SDS_NOINIT;
 #include <stdarg.h>
 #include <stdint.h>
 
+// 字符串
 typedef char *sds;
 
 /* Note: sdshdr5 is never used, we just access the flags byte directly.
  * However is here to document the layout of type 5 SDS strings. */
+// __attribute__ ((__packed__)) 用于取消结构体字节的对齐
+// 因为存在flag属性，如果使用了对齐，就不能指针偏移获取结构体的地址
 struct __attribute__ ((__packed__)) sdshdr5 {
     unsigned char flags; /* 3 lsb of type, and 5 msb of string length */
     char buf[];
@@ -80,12 +83,23 @@ struct __attribute__ ((__packed__)) sdshdr64 {
 #define SDS_TYPE_64 4
 #define SDS_TYPE_MASK 7
 #define SDS_TYPE_BITS 3
+
+// 疑问：强转void*赋值给结构体指针为什么可以直接取值
+// 在C里，void*可以和其他任何指针（函数指针除外）相互转换而不需要类型转换的，C++里类型检查比较严格，需强制转换
+// https://bbs.csdn.net/topics/90483005
 #define SDS_HDR_VAR(T,s) struct sdshdr##T *sh = (void*)((s)-(sizeof(struct sdshdr##T)));
+
+// ##在宏定义里用于连接，sdshdr##8等价于sdshdr8
+// 通过获取结构体大小，对指针进行偏移获取结构体的指针
+// 然后就能访问和修改值
 #define SDS_HDR(T,s) ((struct sdshdr##T *)((s)-(sizeof(struct sdshdr##T))))
 #define SDS_TYPE_5_LEN(f) ((f)>>SDS_TYPE_BITS)
 
+// 获取长度
 static inline size_t sdslen(const sds s) {
+    // 先偏移一个字节获取flag
     unsigned char flags = s[-1];
+    // SDS_TYPE_MASK值为7，即获取flag的前三位
     switch(flags&SDS_TYPE_MASK) {
         case SDS_TYPE_5:
             return SDS_TYPE_5_LEN(flags);
@@ -101,6 +115,7 @@ static inline size_t sdslen(const sds s) {
     return 0;
 }
 
+// 获取属性
 static inline size_t sdsavail(const sds s) {
     unsigned char flags = s[-1];
     switch(flags&SDS_TYPE_MASK) {
@@ -127,6 +142,7 @@ static inline size_t sdsavail(const sds s) {
     return 0;
 }
 
+// 设置长度
 static inline void sdssetlen(sds s, size_t newlen) {
     unsigned char flags = s[-1];
     switch(flags&SDS_TYPE_MASK) {
@@ -151,6 +167,7 @@ static inline void sdssetlen(sds s, size_t newlen) {
     }
 }
 
+// 增加长度
 static inline void sdsinclen(sds s, size_t inc) {
     unsigned char flags = s[-1];
     switch(flags&SDS_TYPE_MASK) {
@@ -176,6 +193,7 @@ static inline void sdsinclen(sds s, size_t inc) {
     }
 }
 
+// 获取剩余空间
 /* sdsalloc() = sdsavail() + sdslen() */
 static inline size_t sdsalloc(const sds s) {
     unsigned char flags = s[-1];
@@ -194,6 +212,7 @@ static inline size_t sdsalloc(const sds s) {
     return 0;
 }
 
+// 设置最大空间
 static inline void sdssetalloc(sds s, size_t newlen) {
     unsigned char flags = s[-1];
     switch(flags&SDS_TYPE_MASK) {
